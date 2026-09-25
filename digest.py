@@ -24,7 +24,7 @@ HN_API = "https://hacker-news.firebaseio.com/v0"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id={id}"
 
 CANDIDATE_COUNT = 40
-DIGEST_SIZE = 10
+DIGEST_SIZE = 5
 MIN_COMMENTS = 5
 
 HN_TIMEOUT = 10           # seconds per HN API call
@@ -32,10 +32,11 @@ ARTICLE_TIMEOUT = 7       # seconds per article fetch
 MAX_ARTICLE_CHARS = 40_000  # bound per-story token cost; plenty for a one-paragraph summary
 MAX_WORKERS = 10
 
-# Aliases for Google's current Flash / Flash-Lite models; override the first with GEMINI_MODEL.
-# Flash-Lite has its own free-tier quota, so it's a backup when Flash is rate-limited or overloaded.
-DEFAULT_MODEL = "gemini-flash-latest"
-BACKUP_MODEL = "gemini-flash-lite-latest"
+# Aliases for Google's current Flash-Lite / Flash models; override the first with GEMINI_MODEL.
+# Flash-Lite writes summaries as good as Flash's and is less often overloaded; Flash has its own
+# free-tier quota, so it's the backup when Flash-Lite is rate-limited or down.
+DEFAULT_MODEL = "gemini-flash-lite-latest"
+BACKUP_MODEL = "gemini-flash-latest"
 
 # The free tier allows ~5 requests/minute per model, so send one request every 13s per model.
 GEMINI_MIN_INTERVAL = 13
@@ -47,8 +48,9 @@ SUMMARY_SYSTEM_PROMPT = (
     "available, the article text, write ONE paragraph of 3-5 sentences explaining what the story "
     "is about and why it might matter to a technical reader. Be concrete and informative: name "
     "the key facts, numbers, people, or products. No preamble, no fluff, no headings, no "
-    "markdown — just the paragraph. If you only have the title, summarize what the title "
-    "indicates without inventing details, and keep it shorter."
+    "markdown — just the paragraph. Work the significance into the paragraph naturally; don't "
+    "start a sentence with \"For technical readers\" or similar framing. If you only have the "
+    "title, summarize what the title indicates without inventing details, and keep it shorter."
 )
 
 USER_AGENT = (
@@ -86,7 +88,7 @@ def interest_score(story: dict) -> int:
     return story.get("score", 0) + story.get("descendants", 0) * 2
 
 
-def select_top_10(stories: list[dict]) -> list[dict]:
+def select_top_stories(stories: list[dict]) -> list[dict]:
     eligible = [
         s for s in stories
         if s
@@ -197,6 +199,11 @@ def build_prompt(story: dict) -> str:
     return "\n\n".join(parts)
 
 
+# Models that already failed a story this run. They're skipped for the rest of the run: when
+# Flash is overloaded or out of quota, retrying it on every story just wastes minutes.
+_given_up: set[str] = set()
+
+
 def summarize_story(story: dict, client: genai.Client, model: str) -> str:
     """Return a one-paragraph summary.
 
@@ -205,12 +212,17 @@ def summarize_story(story: dict, client: genai.Client, model: str) -> str:
     """
     prompt = build_prompt(story)
     for m in dict.fromkeys([model, BACKUP_MODEL]):  # dedupe if GEMINI_MODEL is the backup
+        if m in _given_up:
+            continue
         try:
             summary = call_gemini(client, m, prompt)
-            story["summary_source"] = "gemini" if m == model else "gemini-lite"
+            story["summary_source"] = "primary" if m == model else "backup"
             return summary
         except Exception as e:
             log.warning("%s failed for story %s (%s): %s", m, story["id"], story["title"], _describe(e))
+            if isinstance(e, errors.APIError) and e.code in (429, 500, 503, 504):
+                log.warning("Skipping %s for the rest of this run", m)
+                _given_up.add(m)
 
     if story["description"]:
         story["summary_source"] = "meta"
@@ -361,7 +373,7 @@ def main() -> int:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         stories = list(pool.map(fetch_story_details, ids))
 
-    top = select_top_10(stories)
+    top = select_top_stories(stories)
     log.info("Selected %d stories after filtering and ranking", len(top))
     if not top:
         log.error("No eligible stories found; not sending a digest")
@@ -371,14 +383,14 @@ def main() -> int:
     summarized = summarize_all(top, make_gemini_client(), model)
     by_source = {
         k: sum(s["summary_source"] == k for s in summarized)
-        for k in ("gemini", "gemini-lite", "meta", "none")
+        for k in ("primary", "backup", "meta", "none")
     }
     log.info(
         "Summaries: %d %s, %d %s (backup), %d meta-description fallback, %d title-only",
-        by_source["gemini"], model, by_source["gemini-lite"], BACKUP_MODEL,
+        by_source["primary"], model, by_source["backup"], BACKUP_MODEL,
         by_source["meta"], by_source["none"],
     )
-    if by_source["gemini"] + by_source["gemini-lite"] == 0:
+    if by_source["primary"] + by_source["backup"] == 0:
         log.warning("No Gemini summaries at all — check GEMINI_API_KEY / GEMINI_MODEL")
 
     html_body = build_email_html(summarized)

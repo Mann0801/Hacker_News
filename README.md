@@ -1,6 +1,6 @@
 # Hacker News Daily Digest
 
-Emails you the 10 most-discussed Hacker News stories each day, each with a one-paragraph summary from Google Gemini.
+Emails you the 5 most-discussed Hacker News stories each day, each with a one-paragraph summary from Google Gemini.
 
 **It costs $0 to run.** Every service it uses is free:
 
@@ -15,18 +15,18 @@ Emails you the 10 most-discussed Hacker News stories each day, each with a one-p
 
 1. Pulls the top 40 story IDs from the official HN API and fetches their details in parallel.
 2. Drops job posts, self-posts with no link, dead or deleted items, and stories with fewer than 5 comments.
-3. Ranks what's left by `interest_score = score + 2 × comments` and keeps the top 10.
-4. It downloads all 10 articles in parallel (7-second timeout each) and extracts the main text with `trafilatura`. Then it asks Gemini for a 3–5 sentence summary of each story, one request at a time and about 13 seconds apart. The free tier allows about 5 requests per minute per model, so the summary step takes 2–3 minutes. If an article's text can't be extracted, Gemini summarizes from the title, any submitter text, and the page's meta description.
+3. Ranks what's left by `interest_score = score + 2 × comments` and keeps the top 5. Change `DIGEST_SIZE` in `digest.py` to get more or fewer.
+4. It downloads all 5 articles in parallel (7-second timeout each) and extracts the main text with `trafilatura`. Then it asks Gemini for a 3–5 sentence summary of each story, one request at a time and about 13 seconds apart. The free tier allows about 5 requests per minute per model, so the summary step takes about a minute. If an article's text can't be extracted, Gemini summarizes from the title, any submitter text, and the page's meta description.
 5. It sends an HTML email with a plain-text fallback through Gmail SMTP.
 
 **If Gemini fails for a story:**
 
 1. If Gemini is rate-limited, the script waits as long as Google asks. If it's overloaded, the script retries with backoff.
-2. If Flash still fails, it tries `gemini-flash-lite-latest`, which has its own free quota.
+2. If the main model (`gemini-flash-lite-latest`) still fails, the script tries `gemini-flash-latest`, which has its own free quota. After a model fails once, it's skipped for the rest of that run, so one overloaded model doesn't slow down every story.
 3. If both fail, the story uses the article's meta description.
 4. If there's no description, the story appears with just its title and links.
 
-Stories are never dropped. The log tags each summary with its source: `[gemini]`, `[gemini-lite]`, `[meta]`, or `[none]`.
+Stories are never dropped. The log tags each summary with its source: `[primary]`, `[backup]`, `[meta]`, or `[none]`.
 
 ## Setup
 
@@ -59,11 +59,11 @@ If the App passwords page says the setting isn't available, 2-Step Verification 
 2. Click **Create API key**. Accept the terms if asked, and pick or create a project when prompted.
 3. Copy the key into `GEMINI_API_KEY` in `.env`.
 
-No credit card is needed. Don't enable billing on that Google Cloud project, because that moves the key off the free tier. This project makes about 10 requests a day, far below the free tier's daily limit.
+No credit card is needed. Don't enable billing on that Google Cloud project, because that moves the key off the free tier. This project makes about 5 requests a day, far below the free tier's daily limit.
 
 Note: on the free tier, Google may use your prompts to improve its products. Here those prompts are just public news articles.
 
-The default model is `gemini-flash-latest`, Google's alias for its current Flash model. To pin a specific model, set `GEMINI_MODEL` in `.env`.
+The default model is `gemini-flash-lite-latest`, Google's alias for its current Flash-Lite model. For short summaries its quality matches Flash, and it's less often overloaded. To use a different model, set `GEMINI_MODEL` in `.env`.
 
 ## Running it manually
 
@@ -76,7 +76,7 @@ xdg-open digest_preview.html
 .venv/bin/python digest.py
 ```
 
-A run usually takes 2–3 minutes, mostly waiting between Gemini requests. Progress is logged to stderr.
+A run usually takes about a minute, mostly waiting between Gemini requests. Progress is logged to stderr.
 
 Exit codes: `0` means success, `1` means the run failed (network, auth, or no stories), and `2` means environment variables are missing.
 
