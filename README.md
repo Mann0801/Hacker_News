@@ -2,6 +2,10 @@
 
 Emails you the 5 most-discussed Hacker News stories every morning. Each one comes with a short, plain-English explanation written by Google Gemini. Everything it uses is free.
 
+<p align="center">
+  <img src="docs/email.png" alt="Example digest email" width="560">
+</p>
+
 ## How it works
 
 Every morning, GitHub Actions starts a fresh computer and runs `digest.py`. The script gets the top 40 stories from the Hacker News API and drops job ads, posts with no article link, and stories with fewer than 5 comments. It ranks the rest by points + (comments × 2). Comments count double because the goal is the most *discussed* stories, not just the most liked. The top 5 make the email.
