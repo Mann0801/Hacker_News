@@ -1,0 +1,6 @@
+.env
+.venv/
+__pycache__/
+digest_preview.html
+digest_preview.txt
+digest.log
