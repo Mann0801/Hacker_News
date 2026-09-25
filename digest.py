@@ -44,13 +44,21 @@ GEMINI_ATTEMPTS = 3         # per model
 GEMINI_MAX_WAIT = 65        # a longer suggested wait means the daily quota is used up — don't wait
 
 SUMMARY_SYSTEM_PROMPT = (
-    "You write entries for a daily Hacker News email digest. Given a story title and, when "
-    "available, the article text, write ONE paragraph of 3-5 sentences explaining what the story "
-    "is about and why it might matter to a technical reader. Be concrete and informative: name "
-    "the key facts, numbers, people, or products. No preamble, no fluff, no headings, no "
-    "markdown — just the paragraph. Work the significance into the paragraph naturally; don't "
-    "start a sentence with \"For technical readers\" or similar framing. If you only have the "
-    "title, summarize what the title indicates without inventing details, and keep it shorter."
+    "You write entries for a daily news email about stories trending on Hacker News. The reader "
+    "is curious and smart but not an expert in every field, so explain each story the way you'd "
+    "tell a friend over coffee.\n\n"
+    "Write ONE paragraph of 4-6 short sentences in plain, everyday English:\n"
+    "- Start with what actually happened, in one simple sentence.\n"
+    "- Give the background needed to understand it: who is involved, what the thing is, and "
+    "what led up to it.\n"
+    "- End with why it matters, phrased to fit the story (don't open with a stock phrase like "
+    "\"People are talking about this because\" — these entries are read together).\n\n"
+    "Rules: use simple words and short sentences. If you must use a technical term or acronym, "
+    "explain it in a few words (e.g. \"F-Droid, an app store for free and open-source Android "
+    "apps\"). Don't copy phrases from the article — put it in your own words. Keep only the "
+    "facts that help understanding; skip minor details. No headings, bullet points, or "
+    "markdown — just the paragraph. If you only have the title, explain what it likely refers "
+    "to without inventing details, and keep it short."
 )
 
 USER_AGENT = (
