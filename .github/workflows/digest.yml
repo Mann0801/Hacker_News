@@ -1,13 +1,10 @@
 name: Daily HN digest
 
+# Started every day at 8:00 AM IST by cron-job.org, which calls GitHub's
+# "run workflow" API. GitHub's own `schedule:` trigger was dropped because it
+# often started runs hours late. The button below still works for manual runs.
 on:
-  schedule:
-    - cron: "30 2 * * *"   # 02:30 UTC = 8:00 AM IST
-  workflow_dispatch:        # adds a "Run workflow" button for manual runs
-
-permissions:
-  contents: read
-  actions: write            # lets the keepalive step re-enable this workflow
+  workflow_dispatch:
 
 jobs:
   digest:
@@ -26,11 +23,3 @@ jobs:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-
-      # GitHub turns off scheduled workflows after 60 days without repo activity.
-      # Re-enabling the workflow every run resets that timer, so it never gets turned off.
-      - name: Keep schedule alive
-        if: always()
-        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/digest.yml/enable"
-        env:
-          GH_TOKEN: ${{ github.token }}

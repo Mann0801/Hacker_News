@@ -8,7 +8,7 @@ Emails you the 5 most-discussed Hacker News stories every morning. Each one come
 
 ## How it works
 
-Every morning, GitHub Actions starts a fresh computer and runs `digest.py`. The script gets the top 40 stories from the Hacker News API and drops job ads, posts with no article link, and stories with fewer than 5 comments. It ranks the rest by points + (comments × 2). Comments count double because the goal is the most *discussed* stories, not just the most liked. The top 5 make the email.
+Every morning at 8:00, a free scheduler (cron-job.org) tells GitHub Actions to start a fresh computer and run `digest.py`. The script gets the top 40 stories from the Hacker News API and drops job ads, posts with no article link, and stories with fewer than 5 comments. It ranks the rest by points + (comments × 2). Comments count double because the goal is the most *discussed* stories, not just the most liked. The top 5 make the email.
 
 For each story, the script downloads the article and keeps only the main text, without menus or ads. It sends that text to Gemini and asks for a simple 4–6 sentence explanation: what happened, the background, and why it matters. The free tier allows only about 5 requests per minute, so requests go out one at a time, about 13 seconds apart. If Gemini is busy, the script waits and retries, then tries a backup Gemini model. If both fail, it uses the article's own short description, so a story is never dropped.
 
@@ -38,10 +38,17 @@ cp .env.example .env
 .venv/bin/python digest.py             # send the email
 ```
 
-## Run it every day (GitHub Actions)
+## Run it every day
+
+GitHub's built-in scheduler often starts runs hours late, so a free outside scheduler, [cron-job.org](https://cron-job.org), starts the workflow instead.
 
 1. Push this repo to GitHub.
 2. Go to **Settings → Secrets and variables → Actions** and add the same 4 values from `.env` as secrets.
-3. It then emails you every day at 8:00 AM IST. To send one right away, go to **Actions → Daily HN digest → Run workflow**.
+3. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to only this repo and the **Actions: Read and write** permission.
+4. On cron-job.org, create a daily job at the time you want. Set it up like this:
+   - **URL:** `https://api.github.com/repos/<you>/<repo>/actions/workflows/digest.yml/dispatches`
+   - **Method:** `POST`
+   - **Body:** `{"ref":"main"}`
+   - **Headers:** `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2026-03-10`
 
-To change the time, edit the `cron` line in `.github/workflows/digest.yml`. The time is in UTC.
+To change the time, edit the job on cron-job.org. To send a digest right away, go to **Actions → Daily HN digest → Run workflow**.
