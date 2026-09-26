@@ -40,15 +40,23 @@ cp .env.example .env
 
 ## Run it every day
 
-GitHub's built-in scheduler often starts runs hours late, so a free outside scheduler, [cron-job.org](https://cron-job.org), starts the workflow instead.
+GitHub's built-in scheduler often starts runs hours late. Instead, a free outside scheduler, [cron-job.org](https://cron-job.org), presses "Run workflow" at 8:00 AM IST every day. GitHub starts those runs right away, so the email arrives at about 8:01.
 
 1. Push this repo to GitHub.
 2. Go to **Settings → Secrets and variables → Actions** and add the same 4 values from `.env` as secrets.
-3. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to only this repo and the **Actions: Read and write** permission.
-4. On cron-job.org, create a daily job at the time you want. Set it up like this:
-   - **URL:** `https://api.github.com/repos/<you>/<repo>/actions/workflows/digest.yml/dispatches`
-   - **Method:** `POST`
-   - **Body:** `{"ref":"main"}`
-   - **Headers:** `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2026-03-10`
+3. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new). Give it access to only this repo, with the **Actions: Read and write** permission.
+4. On cron-job.org, create a job:
+
+   | Setting | Value |
+   |---|---|
+   | URL | `https://api.github.com/repos/<you>/<repo>/actions/workflows/digest.yml/dispatches` |
+   | Schedule | Every day at 08:00 |
+   | Time zone | **Asia/Kolkata**. The default is UTC, which would run it at 1:30 PM IST. |
+   | Request method | `POST` |
+   | Request body | `{"ref":"main"}` |
+   | Headers | `Authorization: Bearer <token>`<br>`Accept: application/vnd.github+json`<br>`X-GitHub-Api-Version: 2026-03-10`<br>`Content-Type: application/json` |
+
+5. Click **Test run**. A `204` or `200` status means it worked, and you'll get a digest email a minute later.
+6. Click **Create**. The dashboard should show the next execution as tomorrow at 8:00 AM.
 
 To change the time, edit the job on cron-job.org. To send a digest right away, go to **Actions → Daily HN digest → Run workflow**.
