@@ -8,6 +8,7 @@ import os
 import re
 import smtplib
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -69,6 +70,9 @@ USER_AGENT = (
 log = logging.getLogger("hn-digest")
 session = requests.Session()
 session.headers["User-Agent"] = USER_AGENT
+# trafilatura shares one lxml parser across the module, and lxml parsers aren't thread-safe:
+# parsing from several threads at once crashed a run with "double free or corruption".
+_parse_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -124,8 +128,9 @@ def fetch_article(url: str) -> tuple[str | None, str | None]:
             log.info("Skipping non-HTML content (%s) at %s", content_type, url)
             return None, None
         page = resp.text
-        text = trafilatura.extract(page, include_comments=False, include_tables=False)
-        meta = trafilatura.extract_metadata(page)
+        with _parse_lock:
+            text = trafilatura.extract(page, include_comments=False, include_tables=False)
+            meta = trafilatura.extract_metadata(page)
     except Exception as e:  # network errors, bad encodings, parser errors — all non-fatal
         log.info("Article fetch failed for %s: %s", url, e)
         return None, None
