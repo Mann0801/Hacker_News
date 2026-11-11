@@ -404,8 +404,10 @@ def main() -> int:
         by_source["primary"], model, by_source["backup"], BACKUP_MODEL,
         by_source["meta"], by_source["none"],
     )
-    if by_source["primary"] + by_source["backup"] == 0:
-        log.warning("No Gemini summaries at all — check GEMINI_API_KEY / GEMINI_MODEL")
+    # Still send the digest, but exit non-zero so GitHub emails a failure notice.
+    no_summaries = by_source["primary"] + by_source["backup"] == 0
+    if no_summaries:
+        log.error("No Gemini summaries at all — check GEMINI_API_KEY / GEMINI_MODEL")
 
     html_body = build_email_html(summarized)
     text_body = build_email_text(summarized)
@@ -427,7 +429,7 @@ def main() -> int:
         log.error("Failed to send email: %s", e)
         return 1
     log.info("Digest sent to %s", os.environ["EMAIL_TO"])
-    return 0
+    return 1 if no_summaries else 0
 
 
 if __name__ == "__main__":
