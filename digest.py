@@ -143,7 +143,8 @@ def fetch_article(url: str) -> tuple[str | None, str | None]:
 def make_gemini_client() -> genai.Client:
     return genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
-        http_options=types.HttpOptions(timeout=60_000),  # milliseconds
+        # The *-latest aliases exist only on v1beta; google-genai 3.0 switched the default to v1.
+        http_options=types.HttpOptions(api_version="v1beta", timeout=60_000),  # milliseconds
     )
 
 

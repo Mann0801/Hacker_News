@@ -1,4 +1,4 @@
-google-genai>=2.0
+google-genai>=2.0,<4
 requests>=2.32
 trafilatura>=2.0
 python-dotenv>=1.0
