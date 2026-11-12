@@ -1,6 +1,6 @@
 name: Daily HN digest
 
-# Started every day at 8:00 AM IST by cron-job.org, which calls GitHub's
+# Started every day at 6:58 AM IST by cron-job.org, which calls GitHub's
 # "run workflow" API. GitHub's own `schedule:` trigger was dropped because it
 # often started runs hours late. The button below still works for manual runs.
 on:
